@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>고교 생명과학 탐구: 카페인 음료와 체질별 심박동 시뮬레이터</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Pretendard', sans-serif;
+    }
+
+    @keyframes heartbeatPulse {
+      0% {
+        transform: scale(1);
+      }
+      15% {
+        transform: scale(1.18);
+        filter: drop-shadow(0 0 16px rgba(239, 68, 68, 0.7));
+      }
+      30% {
+        transform: scale(1.04);
+      }
+      45% {
+        transform: scale(1.14);
+        filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.6));
+      }
+      60% {
+        transform: scale(1);
+        filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.2));
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    .animate-heart {
+      transform-origin: center center;
+      animation-name: heartbeatPulse;
+      animation-iteration-count: infinite;
+      animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
+    }
+
+    /* Custom range slider styling */
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 20px;
+      width: 20px;
+      border-radius: 50%;
+      background: #ef4444;
+      cursor: pointer;
+      box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);
+    }
+
+    /* EKG ECG wave background grid */
+    .ecg-grid {
+      background-size: 20px 20px;
+      background-image: 
+        linear-gradient(to right, rgba(239, 68, 68, 0.07) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(239, 68, 68, 0.07) 1px, transparent 1px);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-rose-500 selection:text-white">
+
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="p-2.5 bg-gradient-to-tr from-rose-600 to-amber-500 rounded-xl shadow-lg shadow-rose-950/40">
+          <i class="fa-solid fa-heart-pulse text-white text-xl"></i>
+        </div>
+        <div>
+          <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">고교 융합탐구 모듈</span>
+          <h1 class="text-lg md:text-xl font-bold tracking-tight text-white flex items-center gap-2">
+            카페인 음료와 체질별 심박동 생체 시뮬레이터
+          </h1>
+        </div>
+      </div>
+      
+      <div class="flex items-center gap-2 text-xs md:text-sm">
+        <span class="text-slate-400 hidden sm:inline"><i class="fa-solid fa-graduation-cap mr-1"></i>생명과학 Ⅱ (순환과 신경계) &times; 정보</span>
+        <button id="soundToggleBtn" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+          <i id="soundIcon" class="fa-solid fa-volume-xmark text-rose-400"></i>
+          <span id="soundText">심장음 켜기</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
+
+    <!-- Information banner -->
+    <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-4 rounded-2xl border border-slate-700/60 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div class="space-y-1">
+        <h2 class="text-sm font-semibold text-rose-400 flex items-center gap-2">
+          <i class="fa-solid fa-circle-question"></i> 탐구 과제 질문
+        </h2>
+        <p class="text-xs md:text-sm text-slate-300">
+          "시험 기간에 마시는 고카페인 에너지 드링크, 내 몸의 교감신경과 심장은 어떻게 반응할까? 체질에 따라 심박수 변화 곡선은 왜 다를까?"
+        </p>
+      </div>
+      <div class="flex items-center gap-3 shrink-0 text-xs">
+        <div class="bg-slate-950/70 border border-slate-700 px-3 py-2 rounded-xl text-center">
+          <span class="block text-slate-400 text-[10px]">청소년 권장 상한치 (체중 60kg 기준)</span>
+          <span class="text-amber-400 font-bold text-sm">최대 150 mg / 일</span>
+        </div>
+      </div>
+    </div>
+
+    <section class="space-y-3">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-amber-400"></span> 1. 인기 고카페인 음료 선택 (핫 3종)
+        </h3>
+        <span class="text-xs text-slate-400">음료 카드를 클릭하면 카페인 수치가 즉시 반영됩니다</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="drinkCardContainer">
+        <!-- Drink 1: Monster -->
+        <div data-caffeine="100" data-name="몬스터 에너지 (오리지널)" data-desc="시험기간 청소년 대표 에너지 드링크" class="drink-card cursor-pointer p-4 rounded-xl border-2 border-rose-500 bg-slate-800/80 hover:bg-slate-800 transition duration-200 relative overflow-hidden group shadow-lg shadow-rose-950/20">
+          <div class="absolute top-2 right-2 text-2xl opacity-20 group-hover:opacity-40 transition">⚡</div>
+          <div class="flex items-start justify-between">
+            <div>
+              <span class="inline-block px-2 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-800/50 rounded-md text-[11px] font-semibold mb-1">에너지 음료</span>
+              <h4 class="font-bold text-base text-white">몬스터 에너지 (355ml)</h4>
+              <p class="text-xs text-slate-400 mt-0.5">시험기간 집중용 선호도 1위</p>
+            </div>
+            <div class="text-right">
+              <span class="text-2xl font-black text-rose-400">100</span>
+              <span class="text-xs text-slate-400">mg</span>
+            </div>
+          </div>
+          <div class="mt-3 pt-3 border-t border-slate-700/60 flex justify-between items-center text-xs">
+            <span class="text-slate-400">청소년 1일 권장 대비</span>
+            <span class="text-amber-300 font-semibold">약 66.7% 충족</span>
+          </div>
+        </div>
+
+        <!-- Drink 2: Georgia Craft Cold Brew -->
+        <div data-caffeine="220" data-name="조지아 크래프트 콜드브루 블랙" data-desc="편의점 대용량 페트 커피 중 최상위 함량" class="drink-card cursor-pointer p-4 rounded-xl border border-slate-700 bg-slate-900/60 hover:bg-slate-800/60 transition duration-200 relative overflow-hidden group">
+          <div class="absolute top-2 right-2 text-2xl opacity-20 group-hover:opacity-40 transition">☕</div>
+          <div class="flex items-start justify-between">
+            <div>
+              <span class="inline-block px-2 py-0.5 bg-amber-950 text-amber-400 border border-amber-800/50 rounded-md text-[11px] font-semibold mb-1">대용량 페트커피</span>
+              <h4 class="font-bold text-base text-white">조지아 크래프트 (470ml)</h4>
+              <p class="text-xs text-slate-400 mt-0.5">편의점 고용량 콜드브루</p>
+            </div>
+            <div class="text-right">
+              <span class="text-2xl font-black text-amber-400">220</span>
+              <span class="text-xs text-slate-400">mg</span>
+            </div>
+          </div>
+          <div class="mt-3 pt-3 border-t border-slate-700/60 flex justify-between items-center text-xs">
+            <span class="text-slate-400">청소년 1일 권장 대비</span>
+            <span class="text-rose-400 font-semibold">⚠️ 146.7% (초과)</span>
+          </div>
+        </div>
+
+        <!-- Drink 3: Starbucks Americano Venti -->
+        <div data-caffeine="300" data-name="스타벅스 아이스 아메리카노 (벤티)" data-desc="에스프레소 4샷 투입, 성인 기준치 육박" class="drink-card cursor-pointer p-4 rounded-xl border border-slate-700 bg-slate-900/60 hover:bg-slate-800/60 transition duration-200 relative overflow-hidden group">
+          <div class="absolute top-2 right-2 text-2xl opacity-20 group-hover:opacity-40 transition">🧊</div>
+          <div class="flex items-start justify-between">
+            <div>
+              <span class="inline-block px-2 py-0.5 bg-red-950 text-red-400 border border-red-800/50 rounded-md text-[11px] font-semibold mb-1">초고카페인 에스프레소</span>
+              <h4 class="font-bold text-base text-white">스벅 아메리카노 벤티 (591ml)</h4>
+              <p class="text-xs text-slate-400 mt-0.5">에스프레소 4샷 고농축</p>
+            </div>
+            <div class="text-right">
+              <span class="text-2xl font-black text-red-500">300</span>
+              <span class="text-xs text-slate-400">mg</span>
+            </div>
+          </div>
+          <div class="mt-3 pt-3 border-t border-slate-700/60 flex justify-between items-center text-xs">
+            <span class="text-slate-400">청소년 1일 권장 대비</span>
+            <span class="text-red-400 font-black">🚨 200.0% (2배 위험)</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- Left 2 Cols: Simulation Graph & Time Controls -->
+      <div class="lg:col-span-2 space-y-4">
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 md:p-5 shadow-xl space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+            <div>
+              <h3 class="font-bold text-base text-white flex items-center gap-2">
+                <i class="fa-solid fa-chart-line text-rose-500"></i>
+                시간 경과에 따른 체질별 심박수(BPM) 동적 곡선
+              </h3>
+              <p class="text-xs text-slate-400">카페인 섭취 후 4시간(240분) 동안 3개 군의 흡수 및 대사 반응 비교</p>
+            </div>
+
+            <!-- Subject Focus Selector -->
+            <div class="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+              <span class="text-slate-400 px-2 py-1 hidden sm:inline">관찰 체질:</span>
+              <button class="subject-btn px-3 py-1.5 rounded-lg font-medium text-slate-300 transition" data-type="sensitive">민감군 (영향 큼)</button>
+              <button class="subject-btn active-subject px-3 py-1.5 rounded-lg font-bold bg-rose-600 text-white transition shadow" data-type="normal">일반인</button>
+              <button class="subject-btn px-3 py-1.5 rounded-lg font-medium text-slate-300 transition" data-type="resistant">둔감군 (영향 적음)</button>
+            </div>
+          </div>
+
+          <!-- Chart Area -->
+          <div class="relative w-full h-[290px] md:h-[320px] ecg-grid rounded-xl p-2 border border-slate-800/80">
+            <canvas id="bpmChart"></canvas>
+          </div>
+
+          <!-- Timeline Slider & Playback Controls -->
+          <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between text-xs md:text-sm">
+              <div class="flex items-center gap-2">
+                <button id="playBtn" class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold flex items-center gap-1.5 transition">
+                  <i id="playIcon" class="fa-solid fa-play"></i>
+                  <span id="playText">재생</span>
+                </button>
+                <button id="resetBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition text-xs">
+                  <i class="fa-solid fa-rotate-left mr-1"></i> 처음(0분)으로
+                </button>
+              </div>
+              <div class="text-right">
+                <span class="text-slate-400 text-xs">섭취 후 경과 시간:</span>
+                <span id="timeDisplay" class="font-bold text-rose-400 text-base ml-1">0 분 (직후)</span>
+              </div>
+            </div>
+
+            <div class="pt-1">
+              <input type="range" id="timeSlider" min="0" max="240" step="1" value="0" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-rose-500">
+              <div class="flex justify-between text-[11px] text-slate-500 pt-1">
+                <span>0분 (섭취)</span>
+                <span>30분 (흡수 가속)</span>
+                <span class="text-amber-400 font-semibold">60분 (혈중 최고농도)</span>
+                <span>120분 (대사 분해)</span>
+                <span>240분 (기저 심박수 회복)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col items-center justify-between min-h-[460px] text-center relative overflow-hidden">
+          
+          <!-- Top Heart Status Header -->
+          <div class="w-full flex items-center justify-between border-b border-slate-800 pb-3 text-left">
+            <div>
+              <span id="targetSubjectBadge" class="text-[11px] px-2 py-0.5 rounded-full bg-blue-900/60 text-blue-300 border border-blue-700">일반인 관찰 중</span>
+              <h4 class="font-bold text-white text-base mt-1">심장 수축-이완 실시간 박동</h4>
+            </div>
+            <div id="statusAlertBadge" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+              정상 (안정)
+            </div>
+          </div>
+
+          <!-- Biological Heart Illustration (SVG) with Pulse Animation -->
+          <div class="my-auto relative flex items-center justify-center p-6">
+            <!-- Pulsing outer glow ring -->
+            <div id="heartGlow" class="absolute w-44 h-44 rounded-full bg-rose-500/10 blur-xl transition-all duration-300"></div>
+
+            <!-- Detailed SVG Heart Illustration -->
+            <div id="heartContainer" class="relative z-10 transition-transform duration-100">
+              <svg id="heartSvg" class="w-36 h-36 md:w-44 md:h-44 text-rose-500 transition-all duration-150" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Aorta & Pulmonary Arteries (대동맥, 폐동맥 관) -->
+                <path d="M100 45 C100 25, 115 15, 130 18 C145 21, 145 35, 135 48 C128 58, 120 60, 115 65" stroke="#ef4444" stroke-width="12" stroke-linecap="round" fill="none" opacity="0.9"/>
+                <path d="M85 45 C85 28, 70 20, 58 24 C48 28, 48 42, 60 52 C70 60, 78 62, 85 66" stroke="#3b82f6" stroke-width="10" stroke-linecap="round" fill="none" opacity="0.85"/>
+                <path d="M98 32 L98 55" stroke="#ef4444" stroke-width="10" stroke-linecap="round"/>
+                
+                <!-- Main Ventricles & Atria Heart Muscle Body -->
+                <path d="M100 178 C80 160, 38 120, 38 82 C38 52, 62 48, 80 62 C92 72, 100 82, 100 82 C100 82, 108 72, 120 62 C138 48, 162 52, 162 82 C162 120, 120 160, 100 178 Z" 
+                      fill="url(#heartGradient)" 
+                      stroke="#fb7185" 
+                      stroke-width="3"
+                      class="transition-colors duration-200"/>
+
+                <!-- Left/Right Ventricle Division Line (Sulcus) -->
+                <path d="M98 84 Q102 125, 96 172" stroke="#be123c" stroke-width="2.5" stroke-dasharray="3 2" opacity="0.75"/>
+
+                <!-- Coronary Arteries (관상동맥 미세 가지) -->
+                <path d="M100 95 Q82 108, 68 118" stroke="#fecdd3" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+                <path d="M78 110 Q70 125, 62 135" stroke="#fecdd3" stroke-width="1.5" stroke-linecap="round" opacity="0.8"/>
+                <path d="M102 110 Q118 122, 132 130" stroke="#fecdd3" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+                <path d="M115 120 Q122 135, 126 148" stroke="#fecdd3" stroke-width="1.5" stroke-linecap="round" opacity="0.8"/>
+
+                <!-- Linear Gradients -->
+                <defs>
+                  <linearGradient id="heartGradient" x1="40" y1="50" x2="160" y2="180" gradientUnits="userSpaceOnUse">
+                    <stop stop-color="#f43f5e" />
+                    <stop offset="0.6" stop-color="#e11d48" />
+                    <stop offset="1" stop-color="#881337" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+          </div>
+
+          <div class="w-full space-y-3">
+            <div class="bg-slate-950/80 rounded-xl p-3 border border-slate-800">
+              <div class="flex items-baseline justify-center gap-1.5">
+                <span id="currentBpmVal" class="text-4xl md:text-5xl font-black text-rose-400 tracking-tight">75</span>
+                <span class="text-xs font-bold text-slate-400">BPM</span>
+              </div>
+              <div class="text-[11px] text-slate-400 mt-1 flex justify-center items-center gap-2">
+                <span>1회 박동 주기: <strong id="periodVal" class="text-slate-200">0.80초</strong></span>
+                <span>&bull;</span>
+                <span>기저 대비: <strong id="deltaBpmVal" class="text-rose-300">+0 BPM</strong></span>
+              </div>
+            </div>
+
+            <!-- Real-time Physiological interpretation text -->
+            <p id="physioExplain" class="text-xs text-slate-300 leading-relaxed px-2 bg-slate-900 rounded-lg p-2 border border-slate-800/60">
+              안정 상태입니다. 아데노신이 수용체에 정상 결합하여 부교감신경이 적절한 박동 주기를 유지하고 있습니다.
+            </p>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+      <!-- Column 1: Biological Mechanism -->
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3">
+        <div class="flex items-center gap-2.5 text-amber-400">
+          <div class="p-2 rounded-lg bg-amber-950/70 border border-amber-800/40">
+            <i class="fa-solid fa-dna"></i>
+          </div>
+          <h4 class="font-bold text-base text-white">생명과학 기전 원리</h4>
+        </div>
+        <div class="text-xs text-slate-300 space-y-2 leading-relaxed">
+          <p><strong class="text-amber-300">1. 아데노신 수용체 길항 작용:</strong> 카페인의 분자 구조는 뇌와 심장의 '아데노신(수면/안정 유도 물질)'과 유사하여 수용체에 경쟁적으로 먼저 결합합니다.</p>
+          <p><strong class="text-amber-300">2. 교감신경 흥분:</strong> 아데노신 차단으로 인해 억제 신호가 사라져 에피네프린(아드레날린) 분비가 증가하고, 동방결절(SA node)의 자극 주기가 단축됩니다.</p>
+          <p><strong class="text-amber-300">3. 혈관 및 심박수:</strong> 심박출량과 수축력이 증가하여 일시적 혈압 상승 및 빈맥(Tachycardia)이 유발됩니다.</p>
+        </div>
+      </div>
+
+      <!-- Column 2: Individual Differences (Genetics/Liver Metabolism) -->
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3">
+        <div class="flex items-center gap-2.5 text-rose-400">
+          <div class="p-2 rounded-lg bg-rose-950/70 border border-rose-800/40">
+            <i class="fa-solid fa-person-circle-exclamation"></i>
+          </div>
+          <h4 class="font-bold text-base text-white">체질별 반응 차이의 원인</h4>
+        </div>
+        <div class="text-xs text-slate-300 space-y-2 leading-relaxed">
+          <p><strong class="text-rose-300">1. CYP1A2 간 효소 유전자:</strong> 간에서 카페인을 분해하는 핵심 효소의 유전적 다형성에 따라 '빠른 대사자(둔감군)'와 '느린 대사자(민감군)'로 나뉩니다.</p>
+          <p><strong class="text-rose-300">2. ADORA2A 수용체 민감도:</strong> 아데노신 $A_{2A}$ 수용체 민감성이 높은 학생은 소량의 카페인에도 심한 가슴 두근거림과 불안을 겪습니다.</p>
+          <p><strong class="text-rose-300">3. 청소년의 신체적 취약성:</strong> 청소년은 성인보다 간의 대사 속도가 느리고 체중당 카페인 노출 농도가 높아 심장에 부담이 큽니다.</p>
+        </div>
+      </div>
+
+      <!-- Column 3: Self-Check Quiz & Thought Experiment -->
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-2.5 text-emerald-400 mb-3">
+            <div class="p-2 rounded-lg bg-emerald-950/70 border border-emerald-800/40">
+              <i class="fa-solid fa-clipboard-check"></i>
+            </div>
+            <h4 class="font-bold text-base text-white">스스로 탐구 퀴즈</h4>
+          </div>
+          <p class="text-xs text-slate-300 font-semibold mb-2" id="quizQuestion">
+            Q. 민감군 학생이 '스벅 아메리카노 벤티(300mg)'를 섭취했을 때, 섭취 후 60분 시점의 예상 심박동 상태는?
+          </p>
+          <div class="space-y-1.5 text-xs" id="quizOptions">
+            <button onclick="checkQuizAnswer(1)" class="quiz-btn w-full text-left p-2 rounded-lg bg-slate-950 border border-slate-800 hover:bg-slate-800 transition">① 75 BPM 전후의 안정 상태 유지</button>
+            <button onclick="checkQuizAnswer(2)" class="quiz-btn w-full text-left p-2 rounded-lg bg-slate-950 border border-slate-800 hover:bg-slate-800 transition">② 85 BPM 수준의 경미한 상승</button>
+            <button onclick="checkQuizAnswer(3)" class="quiz-btn w-full text-left p-2 rounded-lg bg-slate-950 border border-slate-800 hover:bg-slate-800 transition">③ 110 BPM 이상의 위험 빈맥(Tachycardia) 도달</button>
+          </div>
+        </div>
+        <div id="quizFeedback" class="hidden text-xs p-2.5 rounded-lg border mt-2"></div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <footer class="border-t border-slate-800 bg-slate-950/80 py-4 text-center text-xs text-slate-500">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <span>고등학교 생명과학 및 정보 융합 수업을 위한 학생 자율 탐구 시뮬레이션 환경</span>
+      <span class="text-slate-600">수학적 모델: $BPM(t) = BPM_{base} + \Delta BPM_{max} \cdot \left(\frac{t}{60}\right) \cdot e^{1 - t/60}$</span>
+    </div>
+  </footer>
+
+  <script>
+    // State management
+    const state = {
+      selectedDrink: {
+        name: "몬스터 에너지 (355ml)",
+        caffeine: 100
+      },
+      currentSubject: "normal", // 'sensitive', 'normal', 'resistant'
+      currentTime: 0, // 0 to 240 mins
+      isPlaying: false,
+      playInterval: null,
+      soundEnabled: false,
+      audioCtx: null,
+      baseBpm: 75
+    };
+
+    // Sensitivity model parameters: (Weight for max increase, half-life / recovery shape factor)
+    const subjectProfiles = {
+      sensitive: {
+        name: "민감군 (영향 큼)",
+        badgeColor: "bg-red-950 text-red-300 border-red-700",
+        weight: 1.55,       // High sensitivity: delta BPM = (caffeine / 10) * 1.55
+        peakTime: 65,       // Peak at 65 min
+        decayK: 0.012,      // Slower metabolic clearance
+        color: "#f43f5e"    // Rose-500
+      },
+      normal: {
+        name: "일반인",
+        badgeColor: "bg-blue-950 text-blue-300 border-blue-700",
+        weight: 1.0,        // Normal sensitivity
+        peakTime: 55,       // Peak at 55 min
+        decayK: 0.018,      // Standard clearance
+        color: "#38bdf8"    // Sky-400
+      },
+      resistant: {
+        name: "둔감군 (영향 적음)",
+        badgeColor: "bg-emerald-950 text-emerald-300 border-emerald-700",
+        weight: 0.45,       // Low sensitivity (fast metabolizer)
+        peakTime: 45,       // Peak early and clears quickly
+        decayK: 0.026,      // Fast metabolic clearance
+        color: "#34d399"    // Emerald-400
+      }
+    };
+
+    /**
+     * Pharmacokinetic-based simulation formula:
+     * Models absorption phase rising towards peak, followed by exponential elimination
+     */
+    function calculateBpm(time, subjectKey, caffeineMg) {
+      const prof = subjectProfiles[subjectKey];
+      const maxDelta = (caffeineMg / 8.5) * prof.weight;
+      
+      if (time <= 0) return state.baseBpm;
+
+      // Absorption and clearance curve (gamma-like / Bateman curve)
+      const tNorm = time / prof.peakTime;
+      const responseCurve = (tNorm) * Math.exp(1 - tNorm);
+      const deltaBpm = maxDelta * responseCurve;
+
+      return Math.round(state.baseBpm + deltaBpm);
+    }
+
+    // Time points for chart (0 to 240 mins in 10-min increments)
+    const timeLabels = [];
+    for (let t = 0; t <= 240; t += 10) {
+      timeLabels.push(t);
+    }
+
+    const ctx = document.getElementById('bpmChart').getContext('2d');
+    let bpmChart;
+
+    function buildChartDatasets() {
+      return [
+        {
+          label: '민감군 (영향 큼)',
+          data: timeLabels.map(t => calculateBpm(t, 'sensitive', state.selectedDrink.caffeine)),
+          borderColor: '#f43f5e',
+          backgroundColor: 'rgba(244, 63, 94, 0.08)',
+          borderWidth: state.currentSubject === 'sensitive' ? 3.5 : 1.5,
+          borderDash: state.currentSubject === 'sensitive' ? [] : [4, 4],
+          tension: 0.35,
+          pointRadius: 0
+        },
+        {
+          label: '일반인',
+          data: timeLabels.map(t => calculateBpm(t, 'normal', state.selectedDrink.caffeine)),
+          borderColor: '#38bdf8',
+          backgroundColor: 'rgba(56, 189, 248, 0.08)',
+          borderWidth: state.currentSubject === 'normal' ? 3.5 : 1.5,
+          borderDash: state.currentSubject === 'normal' ? [] : [4, 4],
+          tension: 0.35,
+          pointRadius: 0
+        },
+        {
+          label: '둔감군 (영향 적음)',
+          data: timeLabels.map(t => calculateBpm(t, 'resistant', state.selectedDrink.caffeine)),
+          borderColor: '#34d399',
+          backgroundColor: 'rgba(52, 211, 153, 0.08)',
+          borderWidth: state.currentSubject === 'resistant' ? 3.5 : 1.5,
+          borderDash: state.currentSubject === 'resistant' ? [] : [4, 4],
+          tension: 0.35,
+          pointRadius: 0
+        }
+      ];
+    }
+
+    function initChart() {
+      bpmChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: timeLabels,
+          datasets: buildChartDatasets()
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: {
+                color: '#94a3b8',
+                font: { size: 11, family: 'Pretendard' },
+                usePointStyle: true,
+                boxWidth: 8
+              }
+            },
+            tooltip: {
+              backgroundColor: '#0f172a',
+              borderColor: '#334155',
+              borderWidth: 1,
+              titleColor: '#e2e8f0',
+              bodyColor: '#cbd5e1',
+              callbacks: {
+                title: function(items) {
+                  return `섭취 후 ${items[0].label}분`;
+                },
+                label: function(context) {
+                  return `${context.dataset.label}: ${context.parsed.y} BPM`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: '경과 시간 (분)',
+                color: '#64748b',
+                font: { size: 11 }
+              },
+              grid: { color: 'rgba(51, 65, 85, 0.25)' },
+              ticks: { color: '#94a3b8', font: { size: 10 } }
+            },
+            y: {
+              title: {
+                display: true,
+                text: '심박수 (BPM)',
+                color: '#64748b',
+                font: { size: 11 }
+              },
+              min: 65,
+              max: 140,
+              grid: { color: 'rgba(51, 65, 85, 0.3)' },
+              ticks: { color: '#94a3b8', font: { size: 10 } }
+            }
+          }
+        }
+      });
+    }
+
+    function playHeartbeatSound() {
+      if (!state.soundEnabled) return;
+      try {
+        if (!state.audioCtx) {
+          state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (state.audioCtx.state === 'suspended') {
+          state.audioCtx.resume();
+        }
+
+        const now = state.audioCtx.currentTime;
+
+        // First Heart Sound (Lub - S1: mitral/tricuspid valves)
+        const osc1 = state.audioCtx.createOscillator();
+        const gain1 = state.audioCtx.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(80, now);
+        osc1.frequency.exponentialRampToValueAtTime(30, now + 0.1);
+        gain1.gain.setValueAtTime(0.4, now);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        osc1.connect(gain1);
+        gain1.connect(state.audioCtx.destination);
+        osc1.start(now);
+        osc1.stop(now + 0.11);
+
+        // Second Heart Sound (Dub - S2: aortic/pulmonary valves, ~0.15s later)
+        const osc2 = state.audioCtx.createOscillator();
+        const gain2 = state.audioCtx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(95, now + 0.14);
+        osc2.frequency.exponentialRampToValueAtTime(35, now + 0.22);
+        gain2.gain.setValueAtTime(0.3, now + 0.14);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+        osc2.connect(gain2);
+        gain2.connect(state.audioCtx.destination);
+        osc2.start(now + 0.14);
+        osc2.stop(now + 0.25);
+      } catch (err) {
+        console.warn("Audio context error:", err);
+      }
+    }
+
+    // Audio sound timer interval management
+    let soundIntervalId = null;
+    function updateSoundLoop(bpm) {
+      if (soundIntervalId) {
+        clearInterval(soundIntervalId);
+        soundIntervalId = null;
+      }
+      if (state.soundEnabled && bpm > 0) {
+        const intervalMs = (60 / bpm) * 1000;
+        playHeartbeatSound();
+        soundIntervalId = setInterval(playHeartbeatSound, intervalMs);
+      }
+    }
+
+    function updateSimulationUI() {
+      const currentBpm = calculateBpm(state.currentTime, state.currentSubject, state.selectedDrink.caffeine);
+      const deltaBpm = currentBpm - state.baseBpm;
+      const beatPeriodSeconds = (60 / currentBpm).toFixed(2);
+
+      // 1. Text telemetry updates
+      document.getElementById('currentBpmVal').textContent = currentBpm;
+      document.getElementById('periodVal').textContent = `${beatPeriodSeconds}초`;
+      document.getElementById('deltaBpmVal').textContent = `+${deltaBpm} BPM`;
+      document.getElementById('timeDisplay').textContent = `${state.currentTime} 분 (${state.currentTime === 0 ? '섭취 직후' : '경과'})`;
+      document.getElementById('timeSlider').value = state.currentTime;
+
+      // 2. Adjust Heartbeat Animation Period dynamically
+      const heartContainer = document.getElementById('heartContainer');
+      heartContainer.style.animation = `heartbeatPulse ${beatPeriodSeconds}s infinite cubic-bezier(0.215, 0.61, 0.355, 1)`;
+
+      // 3. Status Badge and Physiological Description
+      const statusBadge = document.getElementById('statusAlertBadge');
+      const physioExplain = document.getElementById('physioExplain');
+      const heartGlow = document.getElementById('heartGlow');
+      const heartSvg = document.getElementById('heartSvg');
+
+      if (currentBpm < 90) {
+        statusBadge.className = "px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-950 text-emerald-400 border border-emerald-800";
+        statusBadge.textContent = "정상 (안정)";
+        physioExplain.innerHTML = `현재 <strong>${currentBpm} BPM</strong>: 아데노신 결합 억제가 미미하거나 체외로 대사되어 심장이 안정적인 박동수를 유지합니다.`;
+        heartGlow.className = "absolute w-40 h-40 rounded-full bg-emerald-500/10 blur-xl transition-all duration-300";
+        heartSvg.style.filter = "none";
+      } else if (currentBpm < 105) {
+        statusBadge.className = "px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-950 text-amber-400 border border-amber-800";
+        statusBadge.textContent = "주의 (경미한 흥분)";
+        physioExplain.innerHTML = `현재 <strong>${currentBpm} BPM</strong>: 카페인이 아데노신 수용체를 차단하여 교감신경계가 활성화되고 심박출량이 증가하고 있습니다.`;
+        heartGlow.className = "absolute w-44 h-44 rounded-full bg-amber-500/20 blur-xl transition-all duration-300";
+        heartSvg.style.filter = "drop-shadow(0 0 8px rgba(245, 158, 11, 0.4))";
+      } else {
+        statusBadge.className = "px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-950 text-rose-300 border border-rose-700 animate-pulse";
+        statusBadge.textContent = "⚠️ 위험 (빈맥 상태: Tachycardia)";
+        physioExplain.innerHTML = `현재 <strong>${currentBpm} BPM</strong>: <span class='text-rose-400 font-bold'>빈맥 상태</span>입니다! 에피네프린 과다 방출로 심방/심실의 수축 주기가 급격히 단축되어 두근거림 및 어지럼증 위험이 있습니다.`;
+        heartGlow.className = "absolute w-48 h-48 rounded-full bg-rose-500/35 blur-2xl transition-all duration-300";
+        heartSvg.style.filter = "drop-shadow(0 0 16px rgba(244, 63, 94, 0.8))";
+      }
+
+      // 4. Update audio beat loop if sound is active
+      if (state.soundEnabled) {
+        updateSoundLoop(currentBpm);
+      }
+    }
+
+    // Refresh chart datasets and subject styles
+    function updateChartData() {
+      bpmChart.data.datasets = buildChartDatasets();
+      bpmChart.update();
+    }
+
+    // Drink selection cards
+    const drinkCards = document.querySelectorAll('.drink-card');
+    drinkCards.forEach(card => {
+      card.addEventListener('click', () => {
+        drinkCards.forEach(c => {
+          c.classList.remove('border-rose-500', 'bg-slate-800/80', 'border-2');
+          c.classList.add('border-slate-700', 'bg-slate-900/60');
+        });
+        card.classList.remove('border-slate-700', 'bg-slate-900/60');
+        card.classList.add('border-rose-500', 'bg-slate-800/80', 'border-2');
+
+        state.selectedDrink.caffeine = parseInt(card.dataset.caffeine, 10);
+        state.selectedDrink.name = card.dataset.name;
+
+        updateChartData();
+        updateSimulationUI();
+      });
+    });
+
+    // Subject toggle buttons
+    const subjectButtons = document.querySelectorAll('.subject-btn');
+    subjectButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        subjectButtons.forEach(b => {
+          b.classList.remove('bg-rose-600', 'text-white', 'font-bold', 'active-subject');
+          b.classList.add('text-slate-300', 'font-medium');
+        });
+        btn.classList.remove('text-slate-300', 'font-medium');
+        btn.classList.add('bg-rose-600', 'text-white', 'font-bold', 'active-subject');
+
+        state.currentSubject = btn.dataset.type;
+
+        // Update badge text
+        const badge = document.getElementById('targetSubjectBadge');
+        const prof = subjectProfiles[state.currentSubject];
+        badge.textContent = `${prof.name} 관찰 중`;
+        badge.className = `text-[11px] px-2 py-0.5 rounded-full border ${prof.badgeColor}`;
+
+        updateChartData();
+        updateSimulationUI();
+      });
+    });
+
+    // Timeline Slider input
+    const timeSlider = document.getElementById('timeSlider');
+    timeSlider.addEventListener('input', (e) => {
+      state.currentTime = parseInt(e.target.value, 10);
+      updateSimulationUI();
+    });
+
+    // Play / Pause Animation Loop
+    const playBtn = document.getElementById('playBtn');
+    const playIcon = document.getElementById('playIcon');
+    const playText = document.getElementById('playText');
+
+    function togglePlay() {
+      if (state.isPlaying) {
+        clearInterval(state.playInterval);
+        state.isPlaying = false;
+        playIcon.className = "fa-solid fa-play";
+        playText.textContent = "재생";
+      } else {
+        state.isPlaying = true;
+        playIcon.className = "fa-solid fa-pause";
+        playText.textContent = "일시정지";
+
+        state.playInterval = setInterval(() => {
+          if (state.currentTime >= 240) {
+            state.currentTime = 0;
+          } else {
+            state.currentTime += 2;
+          }
+          updateSimulationUI();
+        }, 120);
+      }
+    }
+    playBtn.addEventListener('click', togglePlay);
+
+    // Reset button
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      if (state.isPlaying) togglePlay();
+      state.currentTime = 0;
+      updateSimulationUI();
+    });
+
+    // Sound toggle button
+    const soundToggleBtn = document.getElementById('soundToggleBtn');
+    const soundIcon = document.getElementById('soundIcon');
+    const soundText = document.getElementById('soundText');
+
+    soundToggleBtn.addEventListener('click', () => {
+      state.soundEnabled = !state.soundEnabled;
+      if (state.soundEnabled) {
+        soundIcon.className = "fa-solid fa-volume-high text-emerald-400";
+        soundText.textContent = "심장음 켜짐";
+        soundToggleBtn.classList.add('bg-slate-700');
+        const currentBpm = calculateBpm(state.currentTime, state.currentSubject, state.selectedDrink.caffeine);
+        updateSoundLoop(currentBpm);
+      } else {
+        soundIcon.className = "fa-solid fa-volume-xmark text-rose-400";
+        soundText.textContent = "심장음 켜기";
+        soundToggleBtn.classList.remove('bg-slate-700');
+        if (soundIntervalId) {
+          clearInterval(soundIntervalId);
+          soundIntervalId = null;
+        }
+      }
+    });
+
+    function checkQuizAnswer(selectedOption) {
+      const feedback = document.getElementById('quizFeedback');
+      feedback.classList.remove('hidden', 'bg-emerald-950/80', 'border-emerald-700', 'text-emerald-300', 'bg-rose-950/80', 'border-rose-700', 'text-rose-300');
+
+      if (selectedOption === 3) {
+        feedback.classList.add('bg-emerald-950/80', 'border-emerald-700', 'text-emerald-300');
+        feedback.innerHTML = `<strong>정답입니다! 🎉</strong><br>민감군 학생이 카페인 300mg(스벅 벤티)을 섭취하면 최고 농도 시점에 심박수가 115~120 BPM까지 치솟으며 심각한 빈맥 상태가 나타납니다.`;
+      } else {
+        feedback.classList.add('bg-rose-950/80', 'border-rose-700', 'text-rose-300');
+        feedback.innerHTML = `<strong>다시 생각해 보세요! 🤔</strong><br>300mg은 청소년 1일 권장 상한치(150mg)의 2배입니다. 민감군은 CYP1A2 대사율이 낮아 110 BPM 이상의 위험 빈맥에 도달하게 됩니다.`;
+      }
+    }
+
+    // Window load initialization
+    window.onload = function() {
+      initChart();
+      updateSimulationUI();
+    };
+  </script>
+</body>
+</html>
